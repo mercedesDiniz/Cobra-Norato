@@ -52,16 +52,6 @@ void setup() {
 }
 
 void loop() {
-  uint16_t slaveId = 1;  // Nó sensor 01
-  uint8_t payload_tmp[1];
-
-  // Solicita dados dos sensores ao nó slave
-  ESP_LOGI(TAG, "Solicitando dados ...");
-  for(uint8_t i=0; i<5; i++){
-    gLora.PrepareFrameCommand(slaveId, DATA_REQUEST_CMD, payload_tmp, 1);
-    gLora.SendPacket();
-  }
-
   // Aguardar a resposta do slave
   uint16_t id;
   uint8_t command;
@@ -70,7 +60,6 @@ void loop() {
 
   if (gLora.ReceivePacketCommand(&id, &command, payload, &payloadSize, 3000)) {
         if (command == RESPONSE_CMD && payloadSize == 8) { // Verifica se é uma resposta válida e o tamanho certo
-            ESP_LOGI(TAG, "done.");
             // Processar os dados recebidos
             float humidity = ((payload[0] << 8) | payload[1]) / 100.0; // Humidade com duas casas decimais
             float temperature = ((payload[2] << 8) | payload[3]) / 100.0; // Temperatura com duas casas decimais
@@ -92,8 +81,6 @@ void loop() {
             Serial.println(" cm");
         }
   }
-
-  delay(10000);  // Repete a cada 10 segundos
 }
 
 //*****************************

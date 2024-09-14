@@ -57,54 +57,48 @@ void loop() {
   uint8_t payload[10];
   uint8_t payloadSize;
 
-  // Verifica se há algum comando do master
-  ESP_LOGI(TAG, "1");
-  if (gLora.ReceivePacketCommand(&id, &command, payload, &payloadSize, 1000)) {
-      ESP_LOGI(TAG, "2");
-    if (command == DATA_REQUEST_CMD) {
-      ESP_LOGI(TAG, "Lendos os dados dos sensores.");
-      // Lendo os dados do sensor DHT22
-      sensors_event_t event;
-      float temperature, humidity;
-      // gDht.temperature().getEvent(&event);
-      // temperature = isnan(event.temperature) ? -1 : event.temperature;
-      // gDht.humidity().getEvent(&event);
-      // humidity = isnan(event.relative_humidity) ? -1 : event.relative_humidity;
-      temperature = -1.1;
-      humidity = -1.1;
+  ESP_LOGI(TAG, "Lendos os dados dos sensores.");
+  // Lendo os dados do sensor DHT22
+  sensors_event_t event;
+  float temperature, humidity;
+  // gDht.temperature().getEvent(&event);
+  // temperature = isnan(event.temperature) ? -1 : event.temperature;
+  // gDht.humidity().getEvent(&event);
+  // humidity = isnan(event.relative_humidity) ? -1 : event.relative_humidity;
+  temperature = 25.25;
+  humidity = 25.25;
 
-      // Lendo os dados do sensor Ultrassonico
-      // long microsec = gUltrasonic.timing();
-      // float distance = gUltrasonic.convert(microsec, Ultrasonic::CM);
-      float distance = -1.1;
+  // Lendo os dados do sensor Ultrassonico
+  long microsec = gUltrasonic.timing();
+  float distance = gUltrasonic.convert(microsec, Ultrasonic::CM);
 
-      // Lendo os dados do sensor de Chuva
-      int rain_analog = -1; //gLora.read_gpio(ID, PIN_RAIN_ANALOG); // analogRead(PIN_RAIN_ANALOG);
-      uint8_t rain_dig = 1; //gLora.read_gpio(ID, PIN_RAIN_DIG); // digitalRead(PIN_RAIN_DIG);
+  // Lendo os dados do sensor de Chuva
+  int rain_analog = gLora.read_gpio(ID, PIN_RAIN_ANALOG); // analogRead(PIN_RAIN_ANALOG);
+  uint8_t rain_dig = gLora.read_gpio(ID, PIN_RAIN_DIG); // digitalRead(PIN_RAIN_DIG);
 
-      // Prepara os dados para envio
-      ESP_LOGI(TAG, "Preparando dados para serem enviados.");
-      uint8_t sensorData[8];
-      uint16_t humidityInt = (uint16_t)(humidity * 100); // duas casas decimais
-      uint16_t temperatureInt = (uint16_t)(temperature * 100); // duas casas decimais
-      uint16_t distanceInt = (uint16_t)(distance * 100); // distância em cm com duas casas decimais
+  // Prepara os dados para envio
+  ESP_LOGI(TAG, "Preparando dados para serem enviados.");
+  uint8_t sensorData[8];
+  uint16_t humidityInt = (uint16_t)(humidity * 100); // duas casas decimais
+  uint16_t temperatureInt = (uint16_t)(temperature * 100); // duas casas decimais
+  uint16_t distanceInt = (uint16_t)(distance * 100); // distância em cm com duas casas decimais
 
-      // Dividindo os valores em bytes
-      sensorData[0] = (humidityInt >> 8) & 0xFF;
-      sensorData[1] = humidityInt & 0xFF;
-      sensorData[2] = (temperatureInt >> 8) & 0xFF;
-      sensorData[3] = temperatureInt & 0xFF;
-      sensorData[4] = rain_dig;  // 1 byte para chuva digital (se está chovendo ou não)
-      sensorData[5] = rain_analog & 0xFF;  // 1 byte para valor analógico do sensor de chuva
-      sensorData[6] = (distanceInt >> 8) & 0xFF;
-      sensorData[7] = distanceInt & 0xFF;
+  // Dividindo os valores em bytes
+  sensorData[0] = (humidityInt >> 8) & 0xFF;
+  sensorData[1] = humidityInt & 0xFF;
+  sensorData[2] = (temperatureInt >> 8) & 0xFF;
+  sensorData[3] = temperatureInt & 0xFF;
+  sensorData[4] = rain_dig;  // 1 byte para chuva digital (se está chovendo ou não)
+  sensorData[5] = rain_analog & 0xFF;  // 1 byte para valor analógico do sensor de chuva
+  sensorData[6] = (distanceInt >> 8) & 0xFF;
+  sensorData[7] = distanceInt & 0xFF;
 
-      // Envia os dados de volta para o master
-      ESP_LOGI(TAG, "Enviando dados para o MASTER.");
-      gLora.PrepareFrameCommand(id, RESPONSE_CMD, sensorData, 8);
-      gLora.SendPacket();
-    }
-  }
+  // Envia os dados de volta para o master
+  ESP_LOGI(TAG, "Enviando dados para o MASTER.");
+  gLora.PrepareFrameCommand(id, RESPONSE_CMD, sensorData, 8);
+  gLora.SendPacket();
+
+  delay(20000); // 20s
 }
 
 //*****************************
