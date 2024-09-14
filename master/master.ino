@@ -14,16 +14,16 @@
 // GLOBAL VARIABLES AND FUNCTION PROTOTYPES
 //********************************************
 
+bool config_lora();
+
 // Módulo LoRa
 LoRaMESH gLora(&Serial_ESP_LORA);
 
 // Sensor Ultrassonico HC-SR04
-Ultrasonic gUltrasonic(PIN_TRIGGER, PIN_ECHO);
+float distance;
 
 // Sensor de Umidade e Temperatura DHT22
-DHT_Unified gDht(PIN_DHT, DHTTYPE); 
-sensors_event_t gEventDht;
-uint32_t gDelayBetweenReadings; // em ms    
+float temperature, humidity; 
 
 // Sensor de Chuva YL-83
 int rain_analog;
@@ -45,24 +45,61 @@ void setup() {
   // Configurando o módulo LoRa conectado ao ESP para ser o MASTER
   bool lora_setup_completed = false;
   while (!lora_setup_completed) {
-    lora_setup_completed = config_lora_master();
+    lora_setup_completed = config_lora();
   }
 
-  // Configurando os sensores
-  begin_rain_sensor();
-  begin_dht_sensor();
 
 }
 
 void loop() {
-  // put your main code here, to run repeatedly:
+  uint16_t slaveId = 1;  // Nó sensor 01
+  uint8_t payload_tmp[1];
 
+  // Solicita dados dos sensores ao nó slave
+  ESP_LOGI(TAG, "Solicitando dados ...");
+  for(uint8_t i=0; i<5; i++){
+    gLora.PrepareFrameCommand(slaveId, DATA_REQUEST_CMD, payload_tmp, 1);
+    gLora.SendPacket();
+  }
+
+  // Aguardar a resposta do slave
+  uint16_t id;
+  uint8_t command;
+  uint8_t payload[10];
+  uint8_t payloadSize;
+
+  if (gLora.ReceivePacketCommand(&id, &command, payload, &payloadSize, 3000)) {
+        if (command == RESPONSE_CMD && payloadSize == 8) { // Verifica se é uma resposta válida e o tamanho certo
+            ESP_LOGI(TAG, "done.");
+            // Processar os dados recebidos
+            float humidity = ((payload[0] << 8) | payload[1]) / 100.0; // Humidade com duas casas decimais
+            float temperature = ((payload[2] << 8) | payload[3]) / 100.0; // Temperatura com duas casas decimais
+            uint8_t rain_dig = payload[4];  // Chuva digital (1 ou 0)
+            int rain_analog = payload[5];  // Valor analógico do sensor de chuva
+            float distance = ((payload[6] << 8) | payload[7]) / 100.0; // Distância em cm com duas casas decimais
+
+            // Exibir os dados
+            Serial.print("Umidade: ");
+            Serial.print(humidity);
+            Serial.print(" %, Temperatura: ");
+            Serial.print(temperature);
+            Serial.print(" ºC, Chuva (digital): ");
+            Serial.print(rain_dig ? "Sim" : "Não");
+            Serial.print(", Chuva (analógico): ");
+            Serial.print(rain_analog);
+            Serial.print(", Distância: ");
+            Serial.print(distance);
+            Serial.println(" cm");
+        }
+  }
+
+  delay(10000);  // Repete a cada 10 segundos
 }
 
 //*****************************
 // AUXILIARY FUNCTIONS
 //*****************************
-bool config_lora_master(){
+bool config_lora(){
   if(gLora.localId != ID)
   {
     if(!gLora.setnetworkId(ID)){
@@ -90,40 +127,8 @@ bool config_lora_master(){
     ESP_LOGD(TAG, "Senha configurada com sucesso!");
   }
 
-  ESP_LOGI(TAG, "LocalID: " + String(gLora.localId));
-  ESP_LOGI(TAG, "UniqueID: " + String(gLora.localUniqueId));
-  ESP_LOGI(TAG, #include"Pass <= 65535: " + String(gLora.registered_password));
+  ESP_LOGI(TAG, "LocalID: %s", String(gLora.localId));
+  ESP_LOGI(TAG, "UniqueID: %s", String(gLora.localUniqueId));
+  ESP_LOGI(TAG, "Pass <= 65535: %s", String(gLora.registered_password));
   return true;
-}
-
-void begin_rain_sensor(){
-  pinMode(PIN_RAIN_ANALOG, INPUT);
-  pinMode(PIN_RAIN_DIG, INPUT);
-  ESP_LOGI(TAG, "Pinos do sensor de chuva configurados.");
-}
-
-void begin_dht_sensor(){
-  sensor_t sensor_dht;
-  gDht.begin();  // inicializa a função
-  gDht.temperature().getSensor(&sensor_dht);  // imprime os detalhes do Sensor de Temperatura
-
-  ESP_LOGI(TAG, "------------------------------------");
-  ESP_LOGI(TAG, "Temperatura");
-  ESP_LOGI(TAG, "Sensor: %s", sensor_dht.name);
-  ESP_LOGI(TAG, "Valor max: %.2f *C", sensor_dht.max_value);
-  ESP_LOGI(TAG, "Valor min: %.2f *C", sensor_dht.min_value);
-  ESP_LOGI(TAG, "Resolucao: %.2f *C", sensor_dht.resolution);
-  ESP_LOGI(TAG, "------------------------------------");
-
-  gDht.humidity().getSensor(&sensor_dht);  // imprime os detalhes do Sensor de Umidade
-
-  ESP_LOGI(TAG, "------------------------------------");
-  ESP_LOGI(TAG, "Umidade");
-  ESP_LOGI(TAG, "Sensor: %s", sensor_dht.name);
-  ESP_LOGI(TAG, "Valor max: %.2f%%", sensor_dht.max_value);
-  ESP_LOGI(TAG, "Valor min: %.2f%%", sensor_dht.min_value);
-  ESP_LOGI(TAG, "Resolucao: %.2f%%", sensor_dht.resolution);
-  ESP_LOGI(TAG, "------------------------------------");
-
-  gDelayBetweenReadings = sensor_dht.min_delay / 1000;  // define o atraso entre as leituras
 }

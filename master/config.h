@@ -13,29 +13,5 @@
 uint8_t ID = 0; // MASTER
 #define PASSWORD 123
 HardwareSerial Serial_ESP_LORA(2);
-
-// Sensor Ultrassonico HC-SR04
-#ifdef USE_LORA_PINS_ON_SENSORS
-#define PIN_TRIGGER LoRa_GPIO0 
-#define PIN_ECHO LoRa_GPIO1
-#else
-#define PIN_TRIGGER GPIO_NUM_12 
-#define PIN_ECHO GPIO_NUM_14
-#endif
-
-// Sensor de Chuva YL-83
-#ifdef USE_LORA_PINS_ON_SENSORS
-#define PIN_RAIN_ANALOG LoRa_GPIO5 // // analogico
-#define PIN_RAIN_DIG LoRa_GPIO4
-#else
-#define PIN_RAIN_ANALOG GPIO_NUM_35
-#define PIN_RAIN_DIG GPIO_NUM_32
-#endif
-
-// Sensor de Umidade e Temperatura DHT22
-#define DHTTYPE DHT22
-#ifdef USE_LORA_PINS_ON_SENSORS
-#define PIN_DHT LoRa_GPIO6 // analogico  
-#else
-#define PIN_DHT GPIO_NUM_33  
-#endif
+#define DATA_REQUEST_CMD 0x01 // Comando de solicitação de dados
+#define RESPONSE_CMD 0x02 // Comando de resposta
