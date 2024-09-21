@@ -44,14 +44,21 @@ void setup() {
 
   // Configurando o módulo LoRa conectado ao ESP para ser o MASTER
   bool lora_setup_completed = false;
+  ESP_LOGI(TAG, "Configurando módulo LoRa ...");
   while (!lora_setup_completed) {
     lora_setup_completed = config_lora();
   }
-
+  ESP_LOGI(TAG, "done.");
 
 }
 
 void loop() {
+  // Solicita dados dos sensores ao nó slave
+  // ESP_LOGI(TAG, "Solicitando dados ...");
+  // gLora.PrepareFrameCommand(1, DATA_REQUEST_CMD, nullptr, 0); // Nó sensor 01
+  // gLora.SendPacket();
+  // delay(500);
+
   // Aguardar a resposta do slave
   uint16_t id;
   uint8_t command;
@@ -59,20 +66,23 @@ void loop() {
   uint8_t payloadSize;
 
   if (gLora.ReceivePacketCommand(&id, &command, payload, &payloadSize, 3000)) {
-        if (command == RESPONSE_CMD && payloadSize == 9) { // Verifica se é uma resposta válida e o tamanho certo
-          // Processar os dados recebidos
-          float humidity = ((payload[0] << 8) | payload[1]) / 100.0;  // Humidade com duas casas decimais
-          float temperature = ((payload[2] << 8) | payload[3]) / 100.0;  // Temperatura com duas casas decimais
-          uint8_t rain_dig = payload[4];  // Chuva digital (1 ou 0)
-          int rain_analog = ((payload[5] << 8) | payload[6]);  // Leitura analógica do sensor de chuva (0-4095)
-          float distance = ((payload[7] << 8) | payload[8]) / 100.0;  // Distância em cm com duas casas decimais
+    // ESP_LOGD(TAG, "Payload Size: %s", String(payloadSize));
+    // ESP_LOGD(TAG, "ID: %s, Command: %s", String(id), String(command));
+    if (command == RESPONSE_CMD && payloadSize == 9) { // Verifica se é uma resposta válida e o tamanho certo
+      // Processar os dados recebidos
+      float humidity = ((payload[0] << 8) | payload[1]) / 100.0;  // Humidade com duas casas decimais
+      float temperature = ((payload[2] << 8) | payload[3]) / 100.0;  // Temperatura com duas casas decimais
+      uint8_t rain_dig = payload[4];  // Chuva digital (1 ou 0)
+      int rain_analog = ((payload[5] << 8) | payload[6]);  // Leitura analógica do sensor de chuva (0-4095)
+      float distance = ((payload[7] << 8) | payload[8]) / 100.0;  // Distância em cm com duas casas decimais
 
-          // Exibir os dados
-          ESP_LOGI(TAG, "Umidade: %s %, Temperatura: %sºC", String(humidity), String(temperature));
-          ESP_LOGI(TAG, "Chuva (dig): %s, Chuva (analog): %s", String(rain_dig), String(rain_analog), String(distance));
-          ESP_LOGI(TAG, "Distância: %s %s", String(distance), "cm");
-        }
+      // Exibir os dados
+      ESP_LOGI(TAG, "Umidade: %s %, Temperatura: %sºC", String(humidity), String(temperature));
+      ESP_LOGI(TAG, "Chuva (dig): %s, Chuva (analog): %s", String(rain_dig), String(rain_analog), String(distance));
+      ESP_LOGI(TAG, "Distância: %s %s", String(distance), "cm");
+    }
   }
+  // delay(20000);
 }
 
 //*****************************

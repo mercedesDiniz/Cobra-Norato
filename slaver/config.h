@@ -13,7 +13,7 @@
 uint8_t ID = 1; // SLAVER
 #define PASSWORD 123
 HardwareSerial Serial_ESP_LORA(2);
-#define DATA_REQUEST_CMD 0x01 // Comando de solicitação de dados
+#define DATA_REQUEST_CMD 0x03 // Comando de solicitação de dados
 #define RESPONSE_CMD 0x02 // Comando de resposta
 
 

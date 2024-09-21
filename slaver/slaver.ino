@@ -57,53 +57,56 @@ void loop() {
   uint8_t payload[10];
   uint8_t payloadSize;
 
-  ESP_LOGI(TAG, "Lendos os dados dos sensores.");
+  // if (gLora.ReceivePacketCommand(&id, &command, payload, &payloadSize, 3000)) {
+  //   if (command == DATA_REQUEST_CMD) {
+      ESP_LOGI(TAG, "Lendos os dados dos sensores.");
 
-  // Lendo os dados do sensor Ultrassonico
-  long microsec = gUltrasonic.timing();
-  float distance = gUltrasonic.convert(microsec, Ultrasonic::CM);
+      // Lendo os dados do sensor Ultrassonico
+      long microsec = gUltrasonic.timing();
+      float distance = gUltrasonic.convert(microsec, Ultrasonic::CM);
 
-  // Lendo os dados do sensor de Chuva
-  int rain_analog = analogRead(PIN_RAIN_ANALOG);
-  uint8_t rain_dig = digitalRead(PIN_RAIN_DIG);
+      // Lendo os dados do sensor de Chuva
+      int rain_analog = analogRead(PIN_RAIN_ANALOG);
+      uint8_t rain_dig = digitalRead(PIN_RAIN_DIG);
 
-  // Lendo os dados do sensor DHT22
-  sensors_event_t event;
-  float temperature, humidity;
-  delay(gDelayBetweenReadings);
-  gDht.temperature().getEvent(&event);
-  temperature = isnan(event.temperature) ? -1 : event.temperature;
-  gDht.humidity().getEvent(&event);
-  humidity = isnan(event.relative_humidity) ? -1 : event.relative_humidity;
+      // Lendo os dados do sensor DHT22
+      sensors_event_t event;
+      float temperature, humidity;
+      delay(gDelayBetweenReadings);
+      gDht.temperature().getEvent(&event);
+      temperature = isnan(event.temperature) ? -1 : event.temperature;
+      gDht.humidity().getEvent(&event);
+      humidity = isnan(event.relative_humidity) ? -1 : event.relative_humidity;
 
-  ESP_LOGI(TAG, "Umidade: %s %, Temperatura: %sºC", String(humidity), String(temperature));
-  ESP_LOGI(TAG, "Chuva (dig): %s, Chuva (analog): %s", String(rain_dig), String(rain_analog), String(distance));
-  ESP_LOGI(TAG, "Distância: %s %s", String(distance), "cm");
+      ESP_LOGI(TAG, "Umidade: %s %, Temperatura: %sºC", String(humidity), String(temperature));
+      ESP_LOGI(TAG, "Chuva (dig): %s, Chuva (analog): %s", String(rain_dig), String(rain_analog), String(distance));
+      ESP_LOGI(TAG, "Distância: %s %s", String(distance), "cm");
 
-  // Prepara os dados para envio (9 bytes)
-  uint8_t sensorData[9];
-  uint16_t humidityInt = (uint16_t)(humidity * 100);  // duas casas decimais
-  uint16_t temperatureInt = (uint16_t)(temperature * 100);  // duas casas decimais
-  uint16_t distanceInt = (uint16_t)(distance * 100);  // distância em cm com duas casas decimais
-  uint16_t rainAnalogInt = (uint16_t)rain_analog;  // valor analógico da chuva (0-4095)
+      // Prepara os dados para envio (9 bytes)
+      uint8_t sensorData[9];
+      uint16_t humidityInt = (uint16_t)(humidity * 100);  // duas casas decimais
+      uint16_t temperatureInt = (uint16_t)(temperature * 100);  // duas casas decimais
+      uint16_t distanceInt = (uint16_t)(distance * 100);  // distância em cm com duas casas decimais
+      uint16_t rainAnalogInt = (uint16_t)rain_analog;  // valor analógico da chuva (0-4095)
 
-  // Dividindo os valores em bytes
-  sensorData[0] = (humidityInt >> 8) & 0xFF;
-  sensorData[1] = humidityInt & 0xFF;
-  sensorData[2] = (temperatureInt >> 8) & 0xFF;
-  sensorData[3] = temperatureInt & 0xFF;
-  sensorData[4] = rain_dig;  // 1 byte para chuva digital (se está chovendo ou não)
-  sensorData[5] = (rainAnalogInt >> 8) & 0xFF;  // byte mais significativo da leitura analógica
-  sensorData[6] = rainAnalogInt & 0xFF;  // byte menos significativo da leitura analógica
-  sensorData[7] = (distanceInt >> 8) & 0xFF;
-  sensorData[8] = distanceInt & 0xFF;
+      // Dividindo os valores em bytes
+      sensorData[0] = (humidityInt >> 8) & 0xFF;
+      sensorData[1] = humidityInt & 0xFF;
+      sensorData[2] = (temperatureInt >> 8) & 0xFF;
+      sensorData[3] = temperatureInt & 0xFF;
+      sensorData[4] = rain_dig;  // 1 byte para chuva digital (se está chovendo ou não)
+      sensorData[5] = (rainAnalogInt >> 8) & 0xFF;  // byte mais significativo da leitura analógica
+      sensorData[6] = rainAnalogInt & 0xFF;  // byte menos significativo da leitura analógica
+      sensorData[7] = (distanceInt >> 8) & 0xFF;
+      sensorData[8] = distanceInt & 0xFF;
 
-  // Envia os dados de volta para o master
-  ESP_LOGI(TAG, "Enviando dados para o MASTER.");
-  gLora.PrepareFrameCommand(id, RESPONSE_CMD, sensorData, 9);
-  gLora.SendPacket();
-
-  delay(20000); // 20s
+      // Envia os dados de volta para o master
+      ESP_LOGI(TAG, "Enviando dados para o MASTER.");
+      gLora.PrepareFrameCommand(id, RESPONSE_CMD, sensorData, 9);
+      gLora.SendPacket();
+    // }
+  // }
+  delay(20000);
 }
 
 //*****************************
