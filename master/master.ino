@@ -3,21 +3,32 @@
 //********************************************
 
 #define TAG "MASTER"
-
+#include <WiFi.h>
+#include <PubSubClient.h>
 #include <Ultrasonic.h>
 #include <Adafruit_Sensor.h>
 #include <DHT.h>
 #include <DHT_U.h>
+#include "LoRaMESH.h"
 #include "config.h"
 
 //********************************************
 // GLOBAL VARIABLES AND FUNCTION PROTOTYPES
 //********************************************
+bool config_lora(void);
+static bool SetupWiFi(void);
+void callback(char* topic, byte* payload, unsigned int length);
+void reconnect(void);
+String message_mqtt(SensorData data);
 
-bool config_lora();
+enum State state = REST; // Controls the states machine (switch case)
 
 // Módulo LoRa
 LoRaMESH gLora(&Serial_ESP_LORA);
+
+// Cliente WiFi e MQTT
+WiFiClient espClient;
+PubSubClient client(espClient);
 
 // Sensor Ultrassonico HC-SR04
 float distance;
@@ -50,45 +61,125 @@ void setup() {
   }
   ESP_LOGI(TAG, "done.");
 
+  // Configurando WiFi
+  SetupWiFi();
+
+  // Configurando o servidor MQTT
+  client.setServer(mqtt_server, mqtt_port);
+  client.setCallback(callback);
 }
 
+// Infinite loop
 void loop() {
-  // Solicita dados dos sensores ao nó slave
-  // ESP_LOGI(TAG, "Solicitando dados ...");
-  // gLora.PrepareFrameCommand(1, DATA_REQUEST_CMD, nullptr, 0); // Nó sensor 01
-  // gLora.SendPacket();
-  // delay(500);
+  static double time_cycle_starts = millis();
+  static SensorData data; 
+  static uint8_t gDataSubmissionPending = 0; 
+  
+  // Finite-state machine (FSM)
+  switch (state) {
+    case SAMPLE:
+    { 
+      ESP_LOGI(TAG, "\nEntering SAMPLE state");
+      double t0 = millis();
+      // Solicita dados dos sensores ao nó slave
+      // ESP_LOGI(TAG, "Solicitando dados ...");
+      // gLora.PrepareFrameCommand(1, DATA_REQUEST_CMD, nullptr, 0); // Nó sensor 01
+      // gLora.SendPacket();
+      // delay(500);
+          
+      // Aguardar a resposta do slave
+      uint16_t id;
+      uint8_t command;
+      uint8_t payload[10];
+      uint8_t payloadSize;
 
-  // Aguardar a resposta do slave
-  uint16_t id;
-  uint8_t command;
-  uint8_t payload[10];
-  uint8_t payloadSize;
 
-  if (gLora.ReceivePacketCommand(&id, &command, payload, &payloadSize, 3000)) {
-    // ESP_LOGD(TAG, "Payload Size: %s", String(payloadSize));
-    // ESP_LOGD(TAG, "ID: %s, Command: %s", String(id), String(command));
-    if (command == RESPONSE_CMD && payloadSize == 9) { // Verifica se é uma resposta válida e o tamanho certo
-      // Processar os dados recebidos
-      float humidity = ((payload[0] << 8) | payload[1]) / 100.0;  // Humidade com duas casas decimais
-      float temperature = ((payload[2] << 8) | payload[3]) / 100.0;  // Temperatura com duas casas decimais
-      uint8_t rain_dig = payload[4];  // Chuva digital (1 ou 0)
-      int rain_analog = ((payload[5] << 8) | payload[6]);  // Leitura analógica do sensor de chuva (0-4095)
-      float distance = ((payload[7] << 8) | payload[8]) / 100.0;  // Distância em cm com duas casas decimais
+      while((millis()-t0) < WAITING_TIME_FOR_NEW_DATA_FROM_SENSOR_NODE){
+        if (gLora.ReceivePacketCommand(&id, &command, payload, &payloadSize, 3000)) {
+          ESP_LOGD(TAG, "ID: %s, Command: %s, Payload Size: %s", String(id), String(command), String(payloadSize));
+          
+          // Verifica se é uma resposta válida e o tamanho certo
+          if (command == RESPONSE_CMD && payloadSize == 9) {
+            data.humidity = ((payload[0] << 8) | payload[1]) / 100.0;     // Humidade com duas casas decimais
+            data.temperature = ((payload[2] << 8) | payload[3]) / 100.0;  // Temperatura com duas casas decimais
+            data.rain_dig = payload[4];                                   // Chuva digital (1 ou 0)
+            data.rain_analog = ((payload[5] << 8) | payload[6]);          // Leitura analógica do sensor de chuva (0-4095)
+            data.distance = ((payload[7] << 8) | payload[8]) / 100.0;     // Distância em cm com duas casas decimais
+            data.message = message_mqtt(data);
 
-      // Exibir os dados
-      ESP_LOGI(TAG, "Umidade: %s %, Temperatura: %sºC", String(humidity), String(temperature));
-      ESP_LOGI(TAG, "Chuva (dig): %s, Chuva (analog): %s", String(rain_dig), String(rain_analog), String(distance));
-      ESP_LOGI(TAG, "Distância: %s %s", String(distance), "cm");
+            // Exibir os dados
+            ESP_LOGI(TAG, "Umidade: %s %, Temperatura: %sºC", String(data.humidity), String(data.temperature));
+            ESP_LOGI(TAG, "Chuva (dig): %s, Chuva (analog): %s", String(data.rain_dig), String(data.rain_analog), String(data.distance));
+            ESP_LOGI(TAG, "Distância: %s %s", String(data.distance), "cm");
+
+            gDataSubmissionPending++;
+            break;
+          }        
+        }
+      }
+
+      state = ((gDataSubmissionPending > 0) ? CONNECT : REST);
+      break;
+    }
+
+    case CONNECT:
+    { 
+      ESP_LOGI(TAG, "\nEntering CONNECT state");
+      
+      if (WiFi.status() != WL_CONNECTED) WiFi.reconnect();
+      double t0 = millis();
+      while (WiFi.status() != WL_CONNECTED) {
+        if (millis() - t0 > 5000) {
+          ESP_LOGE(TAG, "WiFi connection failed");
+          break;
+        }
+      }
+
+      if (!client.connected()) reconnect();
+      client.loop();
+
+      state = ((WiFi.status() == WL_CONNECTED && client.connected()) ? TRANSMIT : REST);
+      break;
+    }
+
+    case TRANSMIT:
+    {
+      ESP_LOGI(TAG, "\nEntering TRANSMIT state");
+
+      // Criando a mensagem com os dados
+      ESP_LOGI(TAG, "MESSAGE: %s", data.message);
+      
+      // Publicar uma mensagem no tópico MQTT
+      // client.publish(mqtt_topic, dat.mensagem);
+      client.publish(mqtt_topic,"{'value':32}");
+      gDataSubmissionPending--;
+
+      state = REST;
+      break;
+    }
+
+    case REST:
+    { 
+      ESP_LOGI(TAG, "\nEntering REST state");
+      double elapsed_time =  millis() - time_cycle_starts;
+
+      while (elapsed_time < TIME_BETWEEN_SAMPLING_WINDOWS){
+        elapsed_time =  millis() - time_cycle_starts;
+        ESP_LOGD(TAG, "elapsed_time = %s", String(elapsed_time));
+      }
+
+      state = SAMPLE;
+      break;
     }
   }
-  // delay(20000);
 }
 
 //*****************************
 // AUXILIARY FUNCTIONS
 //*****************************
-bool config_lora(){
+
+// Função de configurações do módulo LoRa mesh (o ID definido no config.h indica de é master ou slaver)
+bool config_lora(void){
   if(gLora.localId != ID)
   {
     if(!gLora.setnetworkId(ID)){
@@ -121,3 +212,57 @@ bool config_lora(){
   ESP_LOGI(TAG, "Pass <= 65535: %s", String(gLora.registered_password));
   return true;
 }
+
+// Função par iniciar a conecção com o WiFi
+static bool SetupWiFi(void) {
+  WiFi.disconnect();
+  WiFi.begin(WIFI_SSID, WIFI_PASS);
+  ESP_LOGD(TAG, "Connecting to WiFi...");
+  double t0 = millis();
+  while (WiFi.status() != WL_CONNECTED) {
+    if (millis() - t0 > 10000) {
+      ESP_LOGE(TAG, "WiFi connection failed");
+      return false;
+    }
+  }
+  ESP_LOGI(TAG, "IP address: %s\n", WiFi.localIP().toString().c_str());
+  return true;
+}
+
+// Função de callback para quando uma mensagem é recebida
+void callback(char* topic, byte* payload, unsigned int length) {
+  Serial.print("Mensagem recebida [");
+  Serial.print(topic);
+  Serial.print("] ");
+  for (int i = 0; i < length; i++) {
+    Serial.print((char)payload[i]);
+  }
+  Serial.println();
+}
+
+// Função para conectar ao broker MQTT
+void reconnect(void) {
+  // Loop até conectar ao broker
+  while (!client.connected()) {
+    Serial.print("Conectando ao broker MQTT...");
+    // Tentativa de conexão
+    if (client.connect(mqtt_client_id)) {
+      Serial.println("Conectado!");
+      // Subscrever ao tópico
+      client.subscribe(mqtt_topic);
+    } else {
+      Serial.print("Falha na conexão, rc=");
+      Serial.print(client.state());
+      Serial.println(" tentando novamente em 5 segundos...");
+      delay(5000);
+    }
+  }
+}
+
+// Função que formata a mensagem MQTT
+String message_mqtt(SensorData data){
+  // return ("{'Humidity':"+String(data.humidity)+"};"+"{'Temperature':"+String(data.temperature)+"};"+"{'Rain_dig':"+String(data.rain_dig)+"};"+"{'Rain_analog':"+String(data.rain_analog)+"};"+"{'Distance':"+String(data.distance)+"}");
+  return "{'value':32}";
+}
+
+
