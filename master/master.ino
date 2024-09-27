@@ -19,7 +19,8 @@ bool config_lora(void);
 static bool SetupWiFi(void);
 void callback(char* topic, byte* payload, unsigned int length);
 void reconnect(void);
-String message_mqtt(SensorData data);
+// String message_mqtt(SensorData data);
+const char* message_mqtt(SensorData data);
 
 enum State state = REST; // Controls the states machine (switch case)
 
@@ -150,8 +151,8 @@ void loop() {
       ESP_LOGI(TAG, "MESSAGE: %s", data.message);
       
       // Publicar uma mensagem no tópico MQTT
-      // client.publish(mqtt_topic, dat.mensagem);
-      client.publish(mqtt_topic,"{'value':32}");
+      client.publish(mqtt_topic, data.message);
+      // client.publish(mqtt_topic,"{'value':32}");
       gDataSubmissionPending--;
 
       state = REST;
@@ -260,9 +261,22 @@ void reconnect(void) {
 }
 
 // Função que formata a mensagem MQTT
-String message_mqtt(SensorData data){
-  // return ("{'Humidity':"+String(data.humidity)+"};"+"{'Temperature':"+String(data.temperature)+"};"+"{'Rain_dig':"+String(data.rain_dig)+"};"+"{'Rain_analog':"+String(data.rain_analog)+"};"+"{'Distance':"+String(data.distance)+"}");
-  return "{'value':32}";
+// String message_mqtt(SensorData data) {
+//   return ("{\"Humidity\":" + String(data.humidity) + 
+//           ",\"Temperature\":" + String(data.temperature) + 
+//           ",\"Rain_dig\":" + String(data.rain_dig) + 
+//           ",\"Rain_analog\":" + String(data.rain_analog) + 
+//           ",\"Distance\":" + String(data.distance) + 
+//           "}");
+// }
+
+const char* message_mqtt(SensorData data) {
+  static char buffer[200]; 
+  snprintf(buffer, sizeof(buffer),
+           "{\"Humidity\":%.2f,\"Temperature\":%.2f,\"Rain_dig\":%d,\"Rain_analog\":%d,\"Distance\":%.2f}",
+           data.humidity, data.temperature, data.rain_dig, data.rain_analog, data.distance);
+  return buffer;
 }
+
 
 
