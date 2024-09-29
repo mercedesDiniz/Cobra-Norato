@@ -17,11 +17,11 @@ HardwareSerial Serial_ESP_LORA(2);
 #define RESPONSE_CMD 0x02 // Comando de resposta
 
 // Configurações da rede Wi-Fi
-#define WIFI_SSID "Nome_da_Rede"
-#define WIFI_PASS "Senha"
+#define WIFI_SSID "DINIZ 2.4"
+#define WIFI_PASS "8209paex4131"
 
 // Configurações do MQTT
-const char* mqtt_server = "192.168.0.102";  // IP do host Docker na rede local
+const char* mqtt_server = "192.168.1.42";  // IP do host Docker na rede local
 const int mqtt_port = 1883;  // Porta padrão MQTT
 const char* mqtt_topic = "pot";
 const char* mqtt_client_id = "com.frank123.esp32";
@@ -35,7 +35,7 @@ struct SensorData{
   uint8_t rain_dig;
   int rain_analog;
   float distance;
-  String message;
+  const char* message;
 };
 
 // Finite States Machine

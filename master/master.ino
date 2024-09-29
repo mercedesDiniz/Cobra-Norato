@@ -166,7 +166,7 @@ void loop() {
 
       while (elapsed_time < TIME_BETWEEN_SAMPLING_WINDOWS){
         elapsed_time =  millis() - time_cycle_starts;
-        ESP_LOGD(TAG, "elapsed_time = %s", String(elapsed_time));
+        // ESP_LOGD(TAG, "elapsed_time = %s", String(elapsed_time));
       }
 
       state = SAMPLE;
