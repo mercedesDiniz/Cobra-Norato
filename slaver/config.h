@@ -3,6 +3,10 @@
 
 // #define USE_LORA_PINS_ON_SENSORS  // Comment out this line to connect the sensor pins directly to the ESP32
 
+// Leds sinalizadores
+#define LEDR  GPIO_NUM_23  // D2
+#define LEDG  GPIO_NUM_22  // D1
+
 // Configuração da USART do ESP32 com o LoRa Master o qual está conectado
 #define RX_Pin GPIO_NUM_16
 #define TX_Pin GPIO_NUM_17

@@ -25,10 +25,13 @@ Ultrasonic gUltrasonic(PIN_TRIGGER, PIN_ECHO);
 DHT_Unified gDht(PIN_DHT, DHTTYPE);
 uint32_t gDelayBetweenReadings;
 
+static void SetupLEDs(void);
 //************************
 // MAIN CODE
 //************************
 void setup() {
+  // Configurando leds sinalizadores
+  SetupLEDs();
   // Monitor Serial
   Serial.begin(115200);
   delay(2000);
@@ -43,6 +46,7 @@ void setup() {
   ESP_LOGI(TAG, "Configurando módulo LoRa ...");
   while (!lora_setup_completed) {
     lora_setup_completed = config_lora();
+    digitalWrite(LEDR, LOW); 
   }
   ESP_LOGI(TAG, "done.");
 
@@ -60,6 +64,7 @@ void loop() {
   // if (gLora.ReceivePacketCommand(&id, &command, payload, &payloadSize, 3000)) {
   //   if (command == DATA_REQUEST_CMD) {
       ESP_LOGI(TAG, "Lendos os dados dos sensores.");
+      analogWriteFrequency(10); 
 
       // Lendo os dados do sensor Ultrassonico
       long microsec = gUltrasonic.timing();
@@ -101,17 +106,21 @@ void loop() {
       sensorData[8] = distanceInt & 0xFF;
 
       // Envia os dados de volta para o master
+      digitalWrite(LEDR, HIGH); 
       ESP_LOGI(TAG, "Enviando dados para o MASTER.");
       gLora.PrepareFrameCommand(id, RESPONSE_CMD, sensorData, 9);
       gLora.SendPacket();
     // }
   // }
+  digitalWrite(LEDR, LOW); 
+  analogWriteFrequency(20);
   delay(20000);
 }
 
 //*****************************
 // AUXILIARY FUNCTIONS
 //*****************************
+// Função de configuração do modulo LoRa
 bool config_lora() {
   if (gLora.localId != ID) {
     if (!gLora.setnetworkId(ID)) {
@@ -144,7 +153,7 @@ bool config_lora() {
   ESP_LOGI(TAG, "Pass <= 65535: %s", String(gLora.registered_password));
   return true;
 }
-
+// Função de configuração do sensor de chuva
 void begin_rain_sensor() {
   // gLora.config_analog_gpio(PIN_RAIN_ANALOG);
   // gLora.config_digital_gpio(PIN_RAIN_DIG, LoRa_NOT_PULL, LoRa_INOUT_DIGITAL_INPUT, LoRa_LOGICAL_LEVEL_LOW);
@@ -152,7 +161,7 @@ void begin_rain_sensor() {
   pinMode(PIN_RAIN_DIG, INPUT);
   ESP_LOGI(TAG, "Pinos do sensor de chuva configurados.");
 }
-
+// Função de configuração do sensor de humidade e temperatura
 void begin_dht_sensor() {
   sensor_t sensor_dht;
   gDht.begin();                               // inicializa a função
@@ -177,4 +186,15 @@ void begin_dht_sensor() {
   ESP_LOGI(TAG, "------------------------------------");
 
   gDelayBetweenReadings = sensor_dht.min_delay / 1000;  // define o atraso entre as leituras
+}
+// Função de configuração dos pinos dos leds sinalizadores
+static void SetupLEDs(void) {
+  analogReadResolution(12); 
+  analogWriteFrequency(20); // Set the PWM frequency to 1 Hz 
+  
+  pinMode(LEDR, OUTPUT); // Estados : 1 ou 0
+  pinMode(LEDG, OUTPUT); // Pisca em variadas frequencias
+
+  digitalWrite(LEDR, HIGH);
+  analogWrite(LEDG, 127); // Generate PWM signal with 50% duty cycle
 }

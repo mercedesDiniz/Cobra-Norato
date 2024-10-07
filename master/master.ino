@@ -15,12 +15,13 @@
 //********************************************
 // GLOBAL VARIABLES AND FUNCTION PROTOTYPES
 //********************************************
-bool config_lora(void);
+static bool config_lora(void);
 static bool SetupWiFi(void);
-void callback(char* topic, byte* payload, unsigned int length);
-void reconnect(void);
+static void callback(char* topic, byte* payload, unsigned int length);
+static void reconnect(void);
 // String message_mqtt(SensorData data);
 const char* message_mqtt(SensorData data);
+static void SetupLEDs(void);
 
 enum State state = REST; // Controls the states machine (switch case)
 
@@ -45,6 +46,9 @@ uint8_t rain_dig;
 // MAIN CODE
 //************************
 void setup() {
+  // Configurando leds
+  SetupLEDs();
+
   // Monitor Serial
   Serial.begin(115200);
   delay(2000);
@@ -81,6 +85,9 @@ void loop() {
     case SAMPLE:
     { 
       ESP_LOGI(TAG, "\nEntering SAMPLE state");
+      digitalWrite(LEDR, LOW);
+      analogWriteFrequency(10); 
+
       double t0 = millis();
       // Solicita dados dos sensores ao nó slave
       // ESP_LOGI(TAG, "Solicitando dados ...");
@@ -93,7 +100,6 @@ void loop() {
       uint8_t command;
       uint8_t payload[10];
       uint8_t payloadSize;
-
 
       while((millis()-t0) < WAITING_TIME_FOR_NEW_DATA_FROM_SENSOR_NODE){
         if (gLora.ReceivePacketCommand(&id, &command, payload, &payloadSize, 3000)) {
@@ -126,6 +132,8 @@ void loop() {
     case CONNECT:
     { 
       ESP_LOGI(TAG, "\nEntering CONNECT state");
+      digitalWrite(LEDR, LOW);
+      analogWriteFrequency(20);
       
       if (WiFi.status() != WL_CONNECTED) WiFi.reconnect();
       double t0 = millis();
@@ -146,6 +154,8 @@ void loop() {
     case TRANSMIT:
     {
       ESP_LOGI(TAG, "\nEntering TRANSMIT state");
+      digitalWrite(LEDR, LOW);
+      analogWriteFrequency(10);
 
       // Criando a mensagem com os dados
       ESP_LOGI(TAG, "MESSAGE: %s", data.message);
@@ -162,6 +172,9 @@ void loop() {
     case REST:
     { 
       ESP_LOGI(TAG, "\nEntering REST state");
+      digitalWrite(LEDR, HIGH);
+      analogWriteFrequency(20);
+
       double elapsed_time =  millis() - time_cycle_starts;
 
       while (elapsed_time < TIME_BETWEEN_SAMPLING_WINDOWS){
@@ -180,7 +193,7 @@ void loop() {
 //*****************************
 
 // Função de configurações do módulo LoRa mesh (o ID definido no config.h indica de é master ou slaver)
-bool config_lora(void){
+static bool config_lora(void){
   if(gLora.localId != ID)
   {
     if(!gLora.setnetworkId(ID)){
@@ -231,7 +244,7 @@ static bool SetupWiFi(void) {
 }
 
 // Função de callback para quando uma mensagem é recebida
-void callback(char* topic, byte* payload, unsigned int length) {
+static void callback(char* topic, byte* payload, unsigned int length) {
   Serial.print("Mensagem recebida [");
   Serial.print(topic);
   Serial.print("] ");
@@ -242,7 +255,7 @@ void callback(char* topic, byte* payload, unsigned int length) {
 }
 
 // Função para conectar ao broker MQTT
-void reconnect(void) {
+static void reconnect(void) {
   // Loop até conectar ao broker
   while (!client.connected()) {
     Serial.print("Conectando ao broker MQTT...");
@@ -278,5 +291,14 @@ const char* message_mqtt(SensorData data) {
   return buffer;
 }
 
+// Função de configuração dos pinos dos leds sinalizadores
+static void SetupLEDs(void) {
+  analogReadResolution(12); 
+  analogWriteFrequency(20); // Set the PWM frequency to 1 Hz 
+  
+  pinMode(LEDR, OUTPUT); // Estados : 1 ou 0
+  pinMode(LEDG, OUTPUT); // Pisca em variadas frequencias
 
-
+  digitalWrite(LEDR, HIGH);
+  analogWrite(LEDG, 127); // Generate PWM signal with 50% duty cycle
+}

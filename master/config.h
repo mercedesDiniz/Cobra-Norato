@@ -2,6 +2,9 @@
 #ifndef _CONFIG_H
 #define _CONFIG_H
 #include <HardwareSerial.h>
+// Leds sinalizadores
+#define LEDR  GPIO_NUM_23  // D2
+#define LEDG  GPIO_NUM_22  // D1
 
 // Configuração da USART do ESP32 com o LoRa Master o qual está conectado
 #define RX_Pin GPIO_NUM_16
