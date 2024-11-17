@@ -1,6 +1,5 @@
 # Cobra Norato: Sistema de Monitoração de Alagamentos
 
-
 ## Materiais
  - 2x Módulo LoRa Mesh
  - 1x ESP32
@@ -21,6 +20,47 @@
 ![Pinout do Chuva](img/rain_sensor_pinout.jpg)
 #### Sensor Ultrassônico HC-SR04
 ![Pinout do Chuva](img/ultrasonic_sensor_pinout.jpg)
+
+## Servidor
+Para executar o servidor desta aplicação, siga os passos abaixo:
+
+### Pré-requisitos
+Certifique-se de que o **Docker** está instalado na sua máquina. Se não estiver, você pode baixá-lo e instalá-lo em [https://www.docker.com/products/docker-desktop](https://www.docker.com/products/docker-desktop).
+
+
+### 1. Baixe a imagem da aplicação
+Execute o comando abaixo para baixar a imagem Docker disponibilizada no Docker Hub:
+~~~bash
+docker pull mercydiniz/cobra_norato:1.1
+~~~
+
+### 2.  Verifique se a imagem foi baixada corretamente e se existem contêineres em execução
+~~~bash
+docker images
+~~~
+
+~~~bash
+docker ps -a
+~~~
+
+### 3. Crie um contêiner com a imagem baixada
+Crie um contêiner com a imagem mercydiniz/cobra_norato e exponha as portas necessárias:
+~~~bash
+docker run -it --name cobra_norato_container -p 8086:8086 -p 1883:1883 mercydiniz/cobra_norato
+~~~
+### 4. Execute o script de inicialização
+Após o contêiner ser iniciado, execute o script de inicialização da aplicação:
+~~~bash
+cd /home/CobraNorato/config
+./influxdb_setup.sh 
+~~~
+
+### 5. API HTTP do InfluxDB
+No navegado de sua escolha, acesse:
+~~~bash
+http://localhost:8086
+~~~
+E faça login.
 
 ## Referências
 
