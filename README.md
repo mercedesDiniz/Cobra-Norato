@@ -31,9 +31,9 @@ Certifique-se de que o **Docker** está instalado na sua máquina. Se não estiv
 ### 1. Baixe a imagem da aplicação
 Execute o comando abaixo para baixar a imagem Docker disponibilizada no Docker Hub:
 ~~~bash
-docker pull mercydiniz/cobra_norato:1.1
+docker pull mercydiniz/cobra_norato:x.x
 ~~~
-
+substitui "x.x" pela tag da versão mais recente presente [aqui](https://hub.docker.com/r/mercydiniz/cobra_norato/tags).
 ### 2.  Verifique se a imagem foi baixada corretamente e se existem contêineres em execução
 ~~~bash
 docker images
@@ -46,7 +46,7 @@ docker ps -a
 ### 3. Crie um contêiner com a imagem baixada
 Crie um contêiner com a imagem mercydiniz/cobra_norato e exponha as portas necessárias:
 ~~~bash
-docker run -it --name cobra_norato_container -p 8086:8086 -p 1883:1883 mercydiniz/cobra_norato
+docker run -it --name cobra_norato_container -p 8086:8086 -p 1883:1883 mercydiniz/cobra_norato:x.x
 ~~~
 ### 4. Execute o script de inicialização
 Após o contêiner ser iniciado, execute o script de inicialização da aplicação:
@@ -61,6 +61,13 @@ No navegado de sua escolha, acesse:
 http://localhost:8086
 ~~~
 E faça login.
+
+### 6. Levantar o contêiner posteriormente
+Após executar os passos anteriores, para levanta novamente o contêiner ja criado e entra no terminal do mesmo, use os comandos:
+~~~bash
+docker start <container_id ou container_name>
+docker exec -it <container_name ou container_id> /bin/bash
+~~~
 
 ## Referências
 
